@@ -3,9 +3,10 @@ pipeline {
     
     environment {
         REGISTRY = 'ghcr.io'
-        // ЗАМЕНИТЕ на ваш логин GitHub (строго в нижнем регистре!)
-        GITHUB_USER = 'dsandreev620' 
+        GITHUB_USER = 'dsandreev620'
         IMAGE_NAME = "${GITHUB_USER}/jenkins-docker-demo"
+        // Явно извлекаем секрет из хранилища Jenkins по его ID
+        GITHUB_TOKEN = credentials('GITHUB_TOKEN')
     }
 
     stages {
@@ -21,7 +22,6 @@ pipeline {
                 echo 'Сборка Docker-образа...'
                 script {
                     def imageTag = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.BUILD_ID}"
-                    // Используем bat для гарантированной работы в Windows
                     bat "docker build -t ${imageTag} ."
                 }
             }
@@ -32,7 +32,6 @@ pipeline {
                 echo 'Запуск тестов внутри контейнера...'
                 script {
                     def imageTag = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.BUILD_ID}"
-                    // --rm удаляет контейнер после завершения
                     bat "docker run --rm ${imageTag}"
                 }
             }
