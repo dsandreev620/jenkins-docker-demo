@@ -4,7 +4,7 @@ pipeline {
     environment {
         REGISTRY = 'ghcr.io'
         // ЗАМЕНИТЕ на ваш логин GitHub (строго в нижнем регистре!)
-        GITHUB_USER = 'ваш_логин' 
+        GITHUB_USER = 'dsandreev620' 
         IMAGE_NAME = "${GITHUB_USER}/jenkins-docker-demo"
     }
 
