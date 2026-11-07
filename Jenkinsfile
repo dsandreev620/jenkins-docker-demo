@@ -5,8 +5,7 @@ pipeline {
         REGISTRY = 'ghcr.io'
         GITHUB_USER = 'dsandreev620'
         IMAGE_NAME = "${GITHUB_USER}/jenkins-docker-demo"
-        // Явно извлекаем секрет из хранилища Jenkins по его ID
-        GITHUB_TOKEN = credentials('GITHUB_TOKEN')
+        // Переменная GITHUB_TOKEN удалена, так как мы используем withDockerRegistry
     }
 
     stages {
@@ -44,8 +43,7 @@ pipeline {
                     def imageTag = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.BUILD_ID}"
                     def latestTag = "${env.REGISTRY}/${env.IMAGE_NAME}:latest"
 
-                    // ОФИЦИАЛЬНЫЙ СПОСОБ Jenkins для Docker Login. 
-                    // Плагин сам безопасно внедрит учетные данные без символов новой строки.
+                    // ОФИЦИАЛЬНЫЙ метод Jenkins. Он сам безопасно управляет логином и логином.
                     withDockerRegistry([credentialsId: 'GHCR_CREDS', url: 'https://ghcr.io']) {
                         bat "docker push ${imageTag}"
                         bat "docker tag ${imageTag} ${latestTag}"
