@@ -5,6 +5,8 @@ pipeline {
         REGISTRY = 'ghcr.io'
         GITHUB_USER = 'dsandreev620'
         IMAGE_NAME = "${GITHUB_USER}/jenkins-docker-demo"
+        // Явно указываем путь к Docker Daemon для Windows
+        DOCKER_HOST = 'npipe:////./pipe/docker_engine'
     }
 
     stages {
@@ -42,8 +44,7 @@ pipeline {
                     def imageTag = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.BUILD_ID}"
                     def latestTag = "${env.REGISTRY}/${env.IMAGE_NAME}:latest"
 
-                    // ОФИЦИАЛЬНЫЙ метод плагина Docker Pipeline. 
-                    // Он сам безопасно управляет логином, без проблем с символами Windows.
+                    // Теперь с установленным DOCKER_HOST плагин найдет Docker
                     withDockerRegistry([credentialsId: 'GHCR_CREDS', url: 'https://ghcr.io']) {
                         bat "docker push ${imageTag}"
                         bat "docker tag ${imageTag} ${latestTag}"
