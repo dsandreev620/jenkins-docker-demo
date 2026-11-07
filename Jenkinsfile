@@ -43,18 +43,23 @@ pipeline {
                 script {
                     def imageTag = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.BUILD_ID}"
                     def latestTag = "${env.REGISTRY}/${env.IMAGE_NAME}:latest"
-                    
-                    // Аутентификация
-                    bat "docker login ${env.REGISTRY} -u ${env.GITHUB_USER} -p ${env.GITHUB_TOKEN}"
-                    
-                    // Обычный push (флаги убраны)
-                    bat "docker push ${imageTag}"
-                    
-                    // Пометка и отправка latest
-                    bat "docker tag ${imageTag} ${latestTag}"
-                    bat "docker push ${latestTag}"
-                    
-                    bat "docker logout ${env.REGISTRY}"
+
+                    // Безопасная передача токена через переменную окружения, а не интерполяцию строки
+                    withCredentials([string(credentialsId: 'GITHUB_TOKEN', variable: 'GHCR_TOKEN')]) {
+                        // Хитрый трюк для Windows: записываем токен в файл БЕЗ перевода строки в конце
+                        bat script: 'echo | set /p="%GHCR_TOKEN%" > temp_token.txt'
+                        
+                        // Передаем токен из файла в docker login
+                        bat 'docker login ${env.REGISTRY} -u ${env.GITHUB_USER} --password-stdin < temp_token.txt'
+                        
+                        // Пушим образ
+                        bat "docker push ${imageTag}"
+                        bat "docker tag ${imageTag} ${latestTag}"
+                        bat "docker push ${latestTag}"
+                        
+                        bat "docker logout ${env.REGISTRY}"
+                        bat "del temp_token.txt"
+                    }
                     echo "Образ успешно опубликован: ${imageTag}"
                 }
             }
