@@ -44,19 +44,17 @@ pipeline {
                     def imageTag = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.BUILD_ID}"
                     def latestTag = "${env.REGISTRY}/${env.IMAGE_NAME}:latest"
                     
-                    // Аутентификация в ghcr.io
+                    // Аутентификация
                     bat "docker login ${env.REGISTRY} -u ${env.GITHUB_USER} -p ${env.GITHUB_TOKEN}"
                     
-                    // Отправка образа с номером сборки
-                    bat "docker push ${imageTag}"
+                    // ДОБАВЛЕН ФЛАГ --max-concurrent-uploads=1
+                    bat "docker push --max-concurrent-uploads=1 ${imageTag}"
                     
-                    // Пометка образа как latest и отправка
+                    // Пометка и отправка latest
                     bat "docker tag ${imageTag} ${latestTag}"
-                    bat "docker push ${latestTag}"
+                    bat "docker push --max-concurrent-uploads=1 ${latestTag}"
                     
-                    // Завершение сессии
                     bat "docker logout ${env.REGISTRY}"
-                    
                     echo "Образ успешно опубликован: ${imageTag}"
                 }
             }
