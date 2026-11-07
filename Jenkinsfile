@@ -44,23 +44,23 @@ pipeline {
                     def imageTag = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.BUILD_ID}"
                     def latestTag = "${env.REGISTRY}/${env.IMAGE_NAME}:latest"
 
-                    // Безопасно внедряем токен как переменную окружения CMD
+                    // Безопасно внедряем токен как переменную окружения
                     withCredentials([string(credentialsId: 'GITHUB_TOKEN', variable: 'GHCR_TOKEN')]) {
                         
-                        // 1. Записываем токен в файл. Синтаксис echo("...") защищает от спецсимволов в Windows
-                        bat "echo(\"%GHCR_TOKEN%\" > temp_token.txt"
+                        // 1. Записываем токен в файл БЕЗ кавычек и БЕЗ символа новой строки (решение проблемы CMD)
+                        powershell '[System.IO.File]::WriteAllText("temp_token.txt", $env:GHCR_TOKEN)'
                         
-                        // 2. Передаем содержимое файла в docker login
-                        bat "docker login ${env.REGISTRY} -u ${env.GITHUB_USER} --password-stdin < temp_token.txt"
+                        // 2. Передаем чистый токен из файла в docker login через конвейер PowerShell
+                        powershell 'Get-Content temp_token.txt | docker login ghcr.io -u dsandreev620 --password-stdin'
                         
-                        // 3. Пушим образы (здесь нет секретов, поэтому обычная интерполяция ${env...} безопасна)
+                        // 3. Отправляем образ (здесь нет секретов, поэтому используем обычный bat)
                         bat "docker push ${imageTag}"
                         bat "docker tag ${imageTag} ${latestTag}"
                         bat "docker push ${latestTag}"
                         
                         // 4. Очистка
-                        bat "docker logout ${env.REGISTRY}"
-                        bat "del temp_token.txt"
+                        bat "docker logout ghcr.io"
+                        powershell 'Remove-Item temp_token.txt -Force'
                     }
                     echo "Образ успешно опубликован: ${imageTag}"
                 }
