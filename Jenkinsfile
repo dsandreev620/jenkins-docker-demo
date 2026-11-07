@@ -47,12 +47,12 @@ pipeline {
                     // Аутентификация
                     bat "docker login ${env.REGISTRY} -u ${env.GITHUB_USER} -p ${env.GITHUB_TOKEN}"
                     
-                    // ДОБАВЛЕН ФЛАГ --max-concurrent-uploads=1
-                    bat "docker push --max-concurrent-uploads=1 ${imageTag}"
+                    // Обычный push (флаги убраны)
+                    bat "docker push ${imageTag}"
                     
                     // Пометка и отправка latest
                     bat "docker tag ${imageTag} ${latestTag}"
-                    bat "docker push --max-concurrent-uploads=1 ${latestTag}"
+                    bat "docker push ${latestTag}"
                     
                     bat "docker logout ${env.REGISTRY}"
                     echo "Образ успешно опубликован: ${imageTag}"
