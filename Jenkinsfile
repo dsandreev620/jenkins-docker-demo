@@ -5,7 +5,6 @@ pipeline {
         REGISTRY = 'ghcr.io'
         GITHUB_USER = 'dsandreev620'
         IMAGE_NAME = "${GITHUB_USER}/jenkins-docker-demo"
-        // Переменная GITHUB_TOKEN удалена, так как мы используем withDockerRegistry
     }
 
     stages {
@@ -43,13 +42,27 @@ pipeline {
                     def imageTag = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.BUILD_ID}"
                     def latestTag = "${env.REGISTRY}/${env.IMAGE_NAME}:latest"
 
-                    // ОФИЦИАЛЬНЫЙ метод Jenkins. Он сам безопасно управляет логином и логином.
-                    withDockerRegistry([credentialsId: 'GHCR_CREDS', url: 'https://ghcr.io']) {
-                        bat "docker push ${imageTag}"
-                        bat "docker tag ${imageTag} ${latestTag}"
-                        bat "docker push ${latestTag}"
+                    // Используем чистый PowerShell, так как он у вас уже работает вручную
+                    withCredentials([string(credentialsId: 'GITHUB_TOKEN', variable: 'GHCR_TOKEN')]) {
+                        powershell """
+                            # 1. Записываем токен в файл АБСОЛЮТНО чисто, без кавычек и переносов строки
+                            [System.IO.File]::WriteAllText("\$PWD\\temp_token.txt", \$env:GHCR_TOKEN)
+                            
+                            # 2. Читаем файл как поток байтов и передаем в docker login (гарантирует отсутствие \r\n)
+                            \$bytes = [System.Text.Encoding]::UTF8.GetBytes([System.IO.File]::ReadAllText("\$PWD\\temp_token.txt"))
+                            \$stream = New-Object System.IO.MemoryStream(,\$bytes)
+                            \$stream | docker login ghcr.io -u ${env.GITHUB_USER} --password-stdin
+                            
+                            # 3. Отправляем образы
+                            docker push ${imageTag}
+                            docker tag ${imageTag} ${latestTag}
+                            docker push ${latestTag}
+                            
+                            # 4. Очистка
+                            docker logout ghcr.io
+                            Remove-Item "\$PWD\\temp_token.txt" -Force
+                        """
                     }
-                    
                     echo "Образ успешно опубликован: ${imageTag}"
                 }
             }
