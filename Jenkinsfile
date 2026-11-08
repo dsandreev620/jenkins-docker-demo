@@ -75,25 +75,52 @@ pipeline {
 
     post {
         always {
-            echo 'Отправка уведомления...'
+            echo 'Отправка уведомления через Resend API...'
             script {
                 def buildStatus = currentBuild.currentResult
-                def subject = buildStatus == 'SUCCESS' 
-                    ? "УСПЕХ: Сборка #${env.BUILD_NUMBER}" 
-                    : "ОШИБКА: Сборка #${env.BUILD_NUMBER}"
+                def isSuccess = (buildStatus == 'SUCCESS')
                 
-                def body = buildStatus == 'SUCCESS'
-                    ? "<h2>Сборка успешна!</h2><p>Приложение: http://localhost:5000</p><p><a href='${env.BUILD_URL}'>Детали</a></p>"
-                    : "<h2>Ошибка!</h2><p>Статус: ${buildStatus}</p><p><a href='${env.BUILD_URL}console'>Логи</a></p>"
+                def subject = isSuccess 
+                    ? "УСПЕХ: Сборка #${env.BUILD_NUMBER} завершена" 
+                    : "ОШИБКА: Сборка #${env.BUILD_NUMBER} провалилась"
+                
+                def htmlContent = isSuccess 
+                    ? "<h2>Сборка успешна!</h2><p><b>Приложение доступно:</b> http://localhost:5000</p><p><a href='${env.BUILD_URL}'>Открыть детали в Jenkins</a></p>"
+                    : "<h2>Сборка завершилась с ошибкой!</h2><p><b>Статус:</b> ${buildStatus}</p><p>Необходимо проверить логи и исправить ошибку.</p><p><a href='${env.BUILD_URL}console'>Открыть логи сборки</a></p>"
 
+                // Формируем корректный JSON-запрос средствами Groovy
+                def requestBody = """{
+                    "from": "CI/CD Pipeline <onboarding@resend.dev>",
+                    "to": ["dmitry.andreev620@gmail.com"],
+                    "subject": "${subject}",
+                    "html": "${htmlContent}"
+                }"""
+
+                // Используем плагин HTTP Request для отправки
                 withCredentials([string(credentialsId: 'RESEND_API_KEY', variable: 'RESEND_KEY')]) {
-                    powershell """
-                        \$headers = @{'Authorization'='Bearer \$env:RESEND_KEY'; 'Content-Type'='application/json'}
-                        \$body = @{'from'='CI/CD <onboarding@resend.dev>'; 'to'=@('dmitry.andreev620@gmail.com'); 'subject'='${subject}'; 'html'='${body}'} | ConvertTo-Json
-                        Invoke-RestMethod -Uri 'https://api.resend.com/emails' -Method Post -Headers \$headers -Body \$body
-                    """
+                    try {
+                        def response = httpRequest(
+                            httpMode: 'POST',
+                            url: 'https://api.resend.com/emails',
+                            customHeaders: [
+                                [name: 'Authorization', value: "Bearer ${RESEND_KEY}"],
+                                [name: 'Content-Type', value: 'application/json']
+                            ],
+                            requestBody: requestBody,
+                            validResponseCodes: '200:299' // Считаем успешными коды от 200 до 299
+                        )
+                        echo "Уведомление успешно отправлено. Код ответа сервера: ${response.status}"
+                    } catch (Exception e) {
+                        echo "Не удалось отправить уведомление: ${e.message}"
+                    }
                 }
             }
+        }
+        success {
+            echo 'Все этапы выполнены успешно!'
+        }
+        failure {
+            echo 'Ошибка в пайплайне. Проверьте логи консоли.'
         }
     }
 }

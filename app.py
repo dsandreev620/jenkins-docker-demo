@@ -2,7 +2,7 @@ from flask import Flask
 import sys
 import os
 
-# Добавляем папку src в пути поиска, чтобы импортировать наши функции
+# Добавляем папку src в пути поиска, чтобы импортировать функции
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 from main import add, multiply
 
