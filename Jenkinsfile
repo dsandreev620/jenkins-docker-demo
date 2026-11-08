@@ -12,16 +12,20 @@ pipeline {
     stages {
         stage('Lint (Проверка кода)') {
             steps {
-                echo 'Запуск flake8 для проверки стиля кода...'
-                // Проверяем файлы на соответствие PEP 8
-                bat "flake8 src/ app.py --count --select=E9,F63,F7,F82 --show-source --statistics"
+                echo 'Запуск flake8 для проверки стиля кода внутри контейнера...'
+                // Запускаем временный контейнер, монтируем текущую папку и выполняем проверку
+                script {
+                    bat "docker run --rm -v \"%cd%\":/app -w /app python:3.11-slim sh -c \"pip install flake8 && flake8 src/ app.py --count --select=E9,F63,F7,F82 --show-source --statistics\""
+                }
             }
         }
 
         stage('Unit Tests (Юнит-тесты)') {
             steps {
-                echo 'Запуск pytest...'
-                bat "python -m pytest tests/ -v"
+                echo 'Запуск pytest внутри контейнера...'
+                script {
+                    bat "docker run --rm -v \"%cd%\":/app -w /app python:3.11-slim sh -c \"pip install -r requirements.txt && python -m pytest tests/ -v\""
+                }
             }
         }
 
@@ -57,10 +61,10 @@ pipeline {
                 script {
                     def imageTag = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.BUILD_ID}"
                     
-                    // 1. Останавливаем и удаляем старый контейнер, если он был запущен (|| exit 0 игнорирует ошибку, если контейнера нет)
+                    // Останавливаем и удаляем старый контейнер, если он был запущен
                     bat "docker rm -f ${env.CONTAINER_NAME} || exit 0"
                     
-                    // 2. Запускаем новый контейнер в фоновом режиме (-d) с пробросом порта 5000
+                    // Запускаем новый контейнер в фоновом режиме с пробросом порта 5000
                     bat "docker run -d --name ${env.CONTAINER_NAME} -p 5000:5000 ${imageTag}"
                     
                     echo "Приложение успешно развернуто на http://localhost:5000"
