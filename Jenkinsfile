@@ -75,13 +75,25 @@ pipeline {
 
     post {
         always {
-            echo 'Пайплайн завершен.'
-        }
-        success {
-            echo 'Все этапы выполнены успешно!'
-        }
-        failure {
-            echo 'Ошибка в пайплайне. Проверьте логи консоли.'
+            echo 'Отправка уведомления...'
+            script {
+                def buildStatus = currentBuild.currentResult
+                def subject = buildStatus == 'SUCCESS' 
+                    ? "УСПЕХ: Сборка #${env.BUILD_NUMBER}" 
+                    : "ОШИБКА: Сборка #${env.BUILD_NUMBER}"
+                
+                def body = buildStatus == 'SUCCESS'
+                    ? "<h2>Сборка успешна!</h2><p>Приложение: http://localhost:5000</p><p><a href='${env.BUILD_URL}'>Детали</a></p>"
+                    : "<h2>Ошибка!</h2><p>Статус: ${buildStatus}</p><p><a href='${env.BUILD_URL}console'>Логи</a></p>"
+
+                withCredentials([string(credentialsId: 'RESEND_API_KEY', variable: 'RESEND_KEY')]) {
+                    powershell """
+                        \$headers = @{'Authorization'='Bearer \$env:RESEND_KEY'; 'Content-Type'='application/json'}
+                        \$body = @{'from'='CI/CD <onboarding@resend.dev>'; 'to'=@('dmitry.andreev620@gmail.com'); 'subject'='${subject}'; 'html'='${body}'} | ConvertTo-Json
+                        Invoke-RestMethod -Uri 'https://api.resend.com/emails' -Method Post -Headers \$headers -Body \$body
+                    """
+                }
+            }
         }
     }
 }
