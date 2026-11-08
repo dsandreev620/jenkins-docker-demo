@@ -1,0 +1,63 @@
+name: Create GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREVIOUS_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges ${PREVIOUS_TAG}..HEAD)
+          fi
+          echo "$CHANGELOG" > CHANGELOG.md
+          {
+            echo "changelog<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create Release Archive
+        run: |
+          zip -r release-${{ steps.get_version.outputs.VERSION }}.zip . -x ".git/*" -x ".github/*" -x "*.log"
+          echo "Docker Image: ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.VERSION }}" > docker-info.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "Release ${{ steps.get_version.outputs.VERSION }}"
+          body: |
+            ## Release ${{ steps.get_version.outputs.VERSION }}
+            ### Changes
+            ${{ steps.changelog.outputs.changelog }}
+            ### Docker Image
+            `ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.VERSION }}`
+          files: |
+            release-${{ steps.get_version.outputs.VERSION }}.zip
+            docker-info.txt
+            CHANGELOG.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

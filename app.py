@@ -10,7 +10,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Приложение успешно развернуто! Попробуйте перейти на /add/5/10"
+    return "Приложение успешно развернуто! Перейти на /add/?/? для сложения и /multiply/?/? для умножения."
 
 @app.route('/add/<int:a>/<int:b>')
 def add_route(a, b):
