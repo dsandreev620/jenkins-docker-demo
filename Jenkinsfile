@@ -5,19 +5,27 @@ pipeline {
         REGISTRY = 'ghcr.io'
         GITHUB_USER = 'dsandreev620'
         IMAGE_NAME = "${GITHUB_USER}/jenkins-docker-demo"
-        // Явно указываем путь к Docker Daemon для Windows
         DOCKER_HOST = 'npipe:////./pipe/docker_engine'
+        CONTAINER_NAME = 'my-demo-app'
     }
 
     stages {
-        stage('Checkout') {
+        stage('Lint (Проверка кода)') {
             steps {
-                echo 'Скачивание кода из репозитория...'
-                checkout scm
+                echo 'Запуск flake8 для проверки стиля кода...'
+                // Проверяем файлы на соответствие PEP 8
+                bat "flake8 src/ app.py --count --select=E9,F63,F7,F82 --show-source --statistics"
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Unit Tests (Юнит-тесты)') {
+            steps {
+                echo 'Запуск pytest...'
+                bat "python -m pytest tests/ -v"
+            }
+        }
+
+        stage('Build (Сборка образа)') {
             steps {
                 echo 'Сборка Docker-образа...'
                 script {
@@ -27,31 +35,35 @@ pipeline {
             }
         }
 
-        stage('Run Tests in Container') {
-            steps {
-                echo 'Запуск тестов внутри контейнера...'
-                script {
-                    def imageTag = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.BUILD_ID}"
-                    bat "docker run --rm ${imageTag}"
-                }
-            }
-        }
-
-        stage('Push to GitHub Container Registry') {
+        stage('Publish (Публикация в реестр)') {
             steps {
                 echo 'Публикация образа в ghcr.io...'
                 script {
                     def imageTag = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.BUILD_ID}"
                     def latestTag = "${env.REGISTRY}/${env.IMAGE_NAME}:latest"
 
-                    // Теперь с установленным DOCKER_HOST плагин найдет Docker
                     withDockerRegistry([credentialsId: 'GHCR_CREDS', url: 'https://ghcr.io']) {
                         bat "docker push ${imageTag}"
                         bat "docker tag ${imageTag} ${latestTag}"
                         bat "docker push ${latestTag}"
                     }
+                }
+            }
+        }
+
+        stage('Deploy (Развертывание)') {
+            steps {
+                echo 'Развертывание приложения в контейнере...'
+                script {
+                    def imageTag = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.BUILD_ID}"
                     
-                    echo "Образ успешно опубликован: ${imageTag}"
+                    // 1. Останавливаем и удаляем старый контейнер, если он был запущен (|| exit 0 игнорирует ошибку, если контейнера нет)
+                    bat "docker rm -f ${env.CONTAINER_NAME} || exit 0"
+                    
+                    // 2. Запускаем новый контейнер в фоновом режиме (-d) с пробросом порта 5000
+                    bat "docker run -d --name ${env.CONTAINER_NAME} -p 5000:5000 ${imageTag}"
+                    
+                    echo "Приложение успешно развернуто на http://localhost:5000"
                 }
             }
         }
