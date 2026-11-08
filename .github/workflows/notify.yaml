@@ -1,0 +1,34 @@
+name: Email Notification
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Email via Resend API
+        run: |
+          STATUS="${{ github.event.workflow_run.conclusion }}"
+          REPO="${{ github.repository }}"
+          RUN_URL="${{ github.event.workflow_run.html_url }}"
+          
+          # Формируем тему письма в зависимости от статуса
+          if [ "$STATUS" == "success" ]; then
+            SUBJECT="УСПЕХ: Сборка завершена успешно"
+          else
+            SUBJECT="ОШИБКА: Сборка провалилась"
+          fi
+
+          # Отправляем HTTP-запрос к API Resend
+          curl -s -X POST "https://api.resend.com/emails" \
+          -H "Authorization: Bearer ${{ secrets.RESEND_API_KEY }}" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"from\": \"CI/CD Pipeline <onboarding@resend.dev>\",
+            \"to\": [\"dmitry.andreev620@gmail.com\"],
+            \"subject\": \"$SUBJECT\",
+            \"html\": \"<h2>Статус сборки: <b>$STATUS</b></h2><p>Репозиторий: $REPO</p><p><a href='$RUN_URL'>Открыть детали сборки в GitHub</a></p>\"
+          }"
