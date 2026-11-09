@@ -17,5 +17,6 @@ def add_route(a, b):
     return f"Результат сложения: {add(a, b)}"
 
 if __name__ == '__main__':
-    # Запускаем сервер на всех интерфейсах, чтобы он был доступен извне контейнера
-    app.run(host='0.0.0.0', port=5000)
+    host = os.environ.get('APP_HOST', '127.0.0.1')
+    port = int(os.environ.get('APP_PORT', 5000))
+    app.run(host=host, port=port)

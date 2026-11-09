@@ -9,5 +9,6 @@ COPY . .
 
 EXPOSE 5000
 
-# Запускаем веб-приложение
+ENV APP_HOST=0.0.0.0
+
 CMD ["python", "app.py"]
